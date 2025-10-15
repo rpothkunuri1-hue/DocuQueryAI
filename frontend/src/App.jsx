@@ -4,7 +4,7 @@ import ChatInterface from './components/ChatInterface';
 import axios from 'axios';
 import './index.css';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = '/api';
 
 function App() {
   const [hasDocuments, setHasDocuments] = useState(false);

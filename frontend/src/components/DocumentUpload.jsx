@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = '/api';
 
 const DocumentUpload = ({ onDocumentUploaded, onDocumentDeleted }) => {
   const [uploading, setUploading] = useState(false);
