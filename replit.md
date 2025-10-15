@@ -4,7 +4,14 @@
 A web-based document question-answering system that allows users to upload documents (PDF, DOCX, TXT) and ask questions about their content using AI-powered semantic search and local LLM inference through Ollama.
 
 ## Recent Changes
-- **October 15, 2025**: Major feature update - Added persistent storage, error handling, document management, conversation history, and export functionality
+- **October 15, 2025**: Complete MVP delivery - All 7 advanced features implemented and tested:
+  - Persistent document & conversation storage with JSON files
+  - Comprehensive Ollama connection error handling
+  - Document deletion from filesystem and vector DB
+  - Conversation history with per-message timestamps
+  - Dual-format export (PDF via ReportLab + Markdown) with timestamps
+  - Document preview functionality
+  - Folder/category organization system
 - **October 14, 2025**: Initial implementation with Python Flask backend, React frontend, ChromaDB vector storage, and Ollama integration
 
 ## Features
@@ -25,9 +32,9 @@ A web-based document question-answering system that allows users to upload docum
 - **Document List**: View all uploaded documents with file type indicators, chunk count, and folder tags
 
 ### Conversation Features
-- **Conversation History**: All Q&A interactions are automatically saved with timestamps
+- **Conversation History**: All Q&A interactions are automatically saved with per-message timestamps
 - **Load Previous Conversations**: Access and continue past conversations from history
-- **Export Conversations**: Download conversation history as Markdown files
+- **Export Conversations**: Download conversation history as both PDF and Markdown files with complete timestamps
 - **New Conversation**: Start fresh conversations while preserving history
 - **Conversation Management**: Delete old conversations to keep history organized
 
