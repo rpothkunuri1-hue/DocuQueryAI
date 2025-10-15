@@ -21,6 +21,7 @@ ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt'}
 CHROMA_PATH = './chroma_db'
 METADATA_FILE = './documents_metadata.json'
 CONVERSATIONS_FILE = './conversations.json'
+MODEL_CONFIG_FILE = './model_config.json'
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(CHROMA_PATH, exist_ok=True)
@@ -28,11 +29,17 @@ os.makedirs(CHROMA_PATH, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
-embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")
 chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
 
 documents_metadata = {}
 conversations = []
+model_config = {
+    'embedding_model': 'nomic-embed-text',
+    'llm_model': 'llama3.2',
+    'ollama_base_url': 'http://localhost:11434'
+}
+
+embeddings = None
 
 def load_metadata():
     global documents_metadata
@@ -68,15 +75,37 @@ def save_conversations():
     except Exception as e:
         print(f"Error saving conversations: {e}")
 
+def load_model_config():
+    global model_config, embeddings
+    if os.path.exists(MODEL_CONFIG_FILE):
+        try:
+            with open(MODEL_CONFIG_FILE, 'r') as f:
+                model_config = json.load(f)
+        except Exception as e:
+            print(f"Error loading model config: {e}")
+    
+    embeddings = OllamaEmbeddings(
+        model=model_config['embedding_model'], 
+        base_url=model_config['ollama_base_url']
+    )
+
+def save_model_config():
+    try:
+        with open(MODEL_CONFIG_FILE, 'w') as f:
+            json.dump(model_config, f, indent=2)
+    except Exception as e:
+        print(f"Error saving model config: {e}")
+
 def check_ollama_connection():
     try:
-        ollama.list()
+        ollama.list(host=model_config['ollama_base_url'])
         return True, None
     except Exception as e:
         return False, str(e)
 
 load_metadata()
 load_conversations()
+load_model_config()
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -123,7 +152,7 @@ def process_document(filepath, filename, folder=None):
     
     is_connected, error = check_ollama_connection()
     if not is_connected:
-        raise ConnectionError(f"Cannot connect to Ollama: {error}. Make sure Ollama is running at localhost:11434")
+        raise ConnectionError(f"Cannot connect to Ollama: {error}. Make sure Ollama is running at {model_config['ollama_base_url']}")
     
     vectorstore = Chroma(
         client=chroma_client,
@@ -205,7 +234,7 @@ def ask_question():
         is_connected, error = check_ollama_connection()
         if not is_connected:
             return jsonify({
-                "error": f"Cannot connect to Ollama: {error}. Make sure Ollama is running at localhost:11434 with llama3.2 and nomic-embed-text models installed.",
+                "error": f"Cannot connect to Ollama: {error}. Make sure Ollama is running at {model_config['ollama_base_url']} with the configured models ({model_config['embedding_model']}, {model_config['llm_model']}) installed.",
                 "error_type": "ollama_connection"
             }), 503
         
@@ -235,8 +264,9 @@ Question: {question}
 Answer:"""
         
         response = ollama.generate(
-            model='llama3.2',
-            prompt=prompt
+            model=model_config['llm_model'],
+            prompt=prompt,
+            host=model_config['ollama_base_url']
         )
         
         answer = response['response']
@@ -471,6 +501,78 @@ def export_conversation(conversation_id):
                 return jsonify(conv), 200
     
     return jsonify({"error": "Conversation not found"}), 404
+
+@app.route('/models', methods=['GET'])
+def list_models():
+    try:
+        is_connected, error = check_ollama_connection()
+        if not is_connected:
+            return jsonify({
+                "error": f"Cannot connect to Ollama: {error}",
+                "models": []
+            }), 503
+        
+        models_response = ollama.list(host=model_config['ollama_base_url'])
+        models = []
+        
+        for model in models_response.get('models', []):
+            model_name = model.get('name', '').split(':')[0]
+            models.append({
+                'name': model_name,
+                'size': model.get('size', 0),
+                'modified': model.get('modified_at', '')
+            })
+        
+        return jsonify({
+            "models": models,
+            "ollama_connected": True
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "models": [],
+            "ollama_connected": False
+        }), 500
+
+@app.route('/models/config', methods=['GET'])
+def get_model_config():
+    return jsonify(model_config), 200
+
+@app.route('/models/config', methods=['PUT'])
+def update_model_config():
+    global model_config, embeddings
+    
+    data = request.json
+    
+    embedding_model_changed = False
+    if 'embedding_model' in data and data['embedding_model'] != model_config['embedding_model']:
+        if documents_metadata:
+            return jsonify({
+                "error": "Cannot change embedding model while documents exist. Please delete all documents first, or they will need to be re-uploaded after changing the model.",
+                "warning": "Changing embedding model requires re-uploading all documents"
+            }), 400
+        embedding_model_changed = True
+        model_config['embedding_model'] = data['embedding_model']
+    
+    if 'llm_model' in data:
+        model_config['llm_model'] = data['llm_model']
+    
+    if 'ollama_base_url' in data:
+        model_config['ollama_base_url'] = data['ollama_base_url']
+    
+    if embedding_model_changed or 'ollama_base_url' in data:
+        embeddings = OllamaEmbeddings(
+            model=model_config['embedding_model'], 
+            base_url=model_config['ollama_base_url']
+        )
+    
+    save_model_config()
+    
+    return jsonify({
+        "message": "Model configuration updated successfully",
+        "config": model_config,
+        "embedding_changed": embedding_model_changed
+    }), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)

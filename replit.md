@@ -4,6 +4,14 @@
 A web-based document question-answering system that allows users to upload documents (PDF, DOCX, TXT) and ask questions about their content using AI-powered semantic search and local LLM inference through Ollama.
 
 ## Recent Changes
+- **October 15, 2025 (Model Management Feature)**: Added configurable Ollama model selection
+  - Settings panel to view and select available Ollama models
+  - Configure embedding model (for document processing) and LLM model (for Q&A)
+  - Support for custom Ollama base URL (enables remote Ollama instances)
+  - Model configuration persists across sessions in model_config.json
+  - Protection against embedding model changes when documents exist (prevents vector dimension mismatch)
+  - Real-time Ollama connection status display
+  - User-friendly error messages and warnings for model configuration
 - **October 15, 2025 (Migration Complete)**: Successfully migrated from Replit Agent to standard Replit environment
   - Installed Python 3.11 and Node.js 20 environments
   - Configured UV for Python dependency management  
@@ -46,6 +54,14 @@ A web-based document question-answering system that allows users to upload docum
 - **Export Conversations**: Download conversation history as both PDF and Markdown files with complete timestamps
 - **New Conversation**: Start fresh conversations while preserving history
 - **Conversation Management**: Delete old conversations to keep history organized
+
+### Model Management
+- **Model Selection**: Choose which Ollama models to use for embeddings and Q&A
+- **Available Models List**: View all installed Ollama models with sizes
+- **Ollama Connection Status**: Real-time status indicator for Ollama service
+- **Remote Ollama Support**: Configure custom Ollama base URL for remote instances
+- **Smart Model Protection**: Prevents embedding model changes when documents exist to avoid vector dimension mismatch
+- **Persistent Configuration**: Model preferences saved to backend (model_config.json)
 
 ### Error Handling
 - **Ollama Connection Checks**: Clear error messages when Ollama is not running or models are missing

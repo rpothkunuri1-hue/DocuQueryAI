@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import DocumentUpload from './components/DocumentUpload';
 import ChatInterface from './components/ChatInterface';
+import Settings from './components/Settings';
 import axios from 'axios';
 import './index.css';
 
@@ -8,6 +9,7 @@ const API_URL = '/api';
 
 function App() {
   const [hasDocuments, setHasDocuments] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     checkDocuments();
@@ -33,8 +35,18 @@ function App() {
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-white border-b border-gray-200 py-4 px-6">
-        <h1 className="text-2xl font-bold text-primary">Document Q&A System</h1>
-        <p className="text-sm text-secondary">Upload documents and ask questions using AI</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-primary">Document Q&A System</h1>
+            <p className="text-sm text-secondary">Upload documents and ask questions using AI</p>
+          </div>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            ⚙️ Settings
+          </button>
+        </div>
       </header>
       
       <div className="flex h-[calc(100vh-80px)]">
@@ -49,6 +61,8 @@ function App() {
           <ChatInterface hasDocuments={hasDocuments} />
         </div>
       </div>
+
+      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
