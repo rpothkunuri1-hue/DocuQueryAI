@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const API_URL = 'http://localhost:8000';
@@ -7,6 +7,22 @@ const ChatInterface = ({ hasDocuments }) => {
   const [messages, setMessages] = useState([]);
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    loadConversations();
+  }, []);
+
+  const loadConversations = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/conversations`);
+      setConversations(response.data.conversations);
+    } catch (err) {
+      console.error('Failed to load conversations:', err);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,7 +34,10 @@ const ChatInterface = ({ hasDocuments }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${API_URL}/ask`, { question });
+      const response = await axios.post(`${API_URL}/ask`, { 
+        question,
+        conversation_id: currentConversationId 
+      });
       
       const assistantMessage = {
         role: 'assistant',
@@ -27,10 +46,20 @@ const ChatInterface = ({ hasDocuments }) => {
       };
       
       setMessages(prev => [...prev, assistantMessage]);
+      setCurrentConversationId(response.data.conversation_id);
+      await loadConversations();
     } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Failed to get answer';
+      const errorType = err.response?.data?.error_type;
+      
+      let displayError = errorMsg;
+      if (errorType === 'ollama_connection') {
+        displayError = `⚠️ ${errorMsg}`;
+      }
+      
       const errorMessage = {
         role: 'error',
-        content: err.response?.data?.error || 'Failed to get answer',
+        content: displayError,
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
@@ -38,8 +67,172 @@ const ChatInterface = ({ hasDocuments }) => {
     }
   };
 
+  const loadConversation = async (convId) => {
+    try {
+      const response = await axios.get(`${API_URL}/conversations/${convId}`);
+      const conv = response.data;
+      
+      const loadedMessages = [];
+      conv.messages.forEach(msg => {
+        loadedMessages.push({ role: 'user', content: msg.question });
+        loadedMessages.push({ 
+          role: 'assistant', 
+          content: msg.answer, 
+          sources: msg.sources 
+        });
+      });
+      
+      setMessages(loadedMessages);
+      setCurrentConversationId(convId);
+      setShowHistory(false);
+    } catch (err) {
+      console.error('Failed to load conversation:', err);
+    }
+  };
+
+  const deleteConversation = async (convId) => {
+    if (!confirm('Delete this conversation?')) return;
+    
+    try {
+      await axios.delete(`${API_URL}/conversations/${convId}`);
+      await loadConversations();
+      
+      if (currentConversationId === convId) {
+        setMessages([]);
+        setCurrentConversationId(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete conversation:', err);
+    }
+  };
+
+  const exportConversation = async (format = 'markdown') => {
+    if (!currentConversationId) return;
+    
+    try {
+      const response = await axios.get(
+        `${API_URL}/conversations/${currentConversationId}/export?format=${format}`,
+        format === 'pdf' ? { responseType: 'blob' } : {}
+      );
+      
+      if (format === 'pdf') {
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `conversation-${currentConversationId}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } else {
+        const blob = new Blob([response.data.content], { type: 'text/markdown' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `conversation-${currentConversationId}.md`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('Failed to export conversation:', err);
+    }
+  };
+
+  const startNewConversation = () => {
+    setMessages([]);
+    setCurrentConversationId(null);
+    setShowHistory(false);
+  };
+
+  const formatDate = (isoString) => {
+    const date = new Date(isoString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      <div className="border-b border-gray-200 p-4 bg-white flex justify-between items-center">
+        <h2 className="font-semibold text-text">
+          {currentConversationId ? 'Conversation' : 'New Conversation'}
+        </h2>
+        <div className="flex gap-2">
+          {currentConversationId && (
+            <div className="flex gap-1">
+              <button
+                onClick={() => exportConversation('markdown')}
+                className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                title="Export as Markdown"
+              >
+                📥 MD
+              </button>
+              <button
+                onClick={() => exportConversation('pdf')}
+                className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                title="Export as PDF"
+              >
+                📄 PDF
+              </button>
+            </div>
+          )}
+          {messages.length > 0 && (
+            <button
+              onClick={startNewConversation}
+              className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              ➕ New
+            </button>
+          )}
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="px-3 py-1.5 text-sm bg-primary text-white hover:bg-blue-700 rounded-lg transition-colors"
+          >
+            📜 History
+          </button>
+        </div>
+      </div>
+
+      {showHistory && (
+        <div className="absolute top-16 right-4 bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-80 max-h-96 overflow-y-auto">
+          <div className="p-4">
+            <h3 className="font-semibold text-text mb-3">Conversation History</h3>
+            {conversations.length > 0 ? (
+              <div className="space-y-2">
+                {conversations.map((conv) => (
+                  <div key={conv.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="flex justify-between items-start gap-2">
+                      <div 
+                        className="flex-1 cursor-pointer"
+                        onClick={() => loadConversation(conv.id)}
+                      >
+                        <p className="text-sm font-medium text-text truncate">
+                          {conv.messages[0]?.question || 'Untitled'}
+                        </p>
+                        <p className="text-xs text-secondary mt-1">
+                          {conv.messages.length} messages • {formatDate(conv.updated_at)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteConversation(conv.id);
+                        }}
+                        className="p-1 hover:bg-red-100 rounded transition-colors"
+                        title="Delete"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-secondary text-center py-4">
+                No conversations yet
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 && (
           <div className="flex items-center justify-center h-full">

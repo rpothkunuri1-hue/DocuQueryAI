@@ -1,13 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DocumentUpload from './components/DocumentUpload';
 import ChatInterface from './components/ChatInterface';
+import axios from 'axios';
 import './index.css';
 
-function App() {
-  const [uploadedDocs, setUploadedDocs] = useState([]);
+const API_URL = 'http://localhost:8000';
 
-  const handleDocumentUploaded = (docInfo) => {
-    setUploadedDocs(prev => [...prev, docInfo]);
+function App() {
+  const [hasDocuments, setHasDocuments] = useState(false);
+
+  useEffect(() => {
+    checkDocuments();
+  }, []);
+
+  const checkDocuments = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/documents`);
+      setHasDocuments(response.data.documents.length > 0);
+    } catch (err) {
+      console.error('Failed to check documents:', err);
+    }
+  };
+
+  const handleDocumentUploaded = () => {
+    setHasDocuments(true);
+  };
+
+  const handleDocumentDeleted = async () => {
+    await checkDocuments();
   };
 
   return (
@@ -18,15 +38,15 @@ function App() {
       </header>
       
       <div className="flex h-[calc(100vh-80px)]">
-        <div className="w-1/3 border-r border-gray-200 bg-white overflow-y-auto">
+        <div className="w-1/3 border-r border-gray-200 bg-white">
           <DocumentUpload 
             onDocumentUploaded={handleDocumentUploaded}
-            uploadedDocs={uploadedDocs}
+            onDocumentDeleted={handleDocumentDeleted}
           />
         </div>
         
         <div className="w-2/3 bg-background">
-          <ChatInterface hasDocuments={uploadedDocs.length > 0} />
+          <ChatInterface hasDocuments={hasDocuments} />
         </div>
       </div>
     </div>
