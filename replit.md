@@ -4,6 +4,15 @@
 A web-based document question-answering system that allows users to upload documents (PDF, DOCX, TXT) and ask questions about their content using AI-powered semantic search and local LLM inference through Ollama.
 
 ## Recent Changes
+- **October 15, 2025 (Migration Complete)**: Successfully migrated from Replit Agent to standard Replit environment
+  - Installed Python 3.11 and Node.js 20 environments
+  - Configured UV for Python dependency management  
+  - Installed all backend (Flask, LangChain, ChromaDB, Ollama) and frontend (React, Vite, Tailwind) dependencies
+  - Set up Vite proxy configuration for API routing (/api → localhost:8000)
+  - Configured Vite to allow Replit dynamic hosts (.replit.dev)
+  - Created unified workflow "RAG Application" running both backend and frontend
+  - Added comprehensive .gitignore for Python, Node, and project-specific files
+  - Verified full application functionality through testing
 - **October 15, 2025**: Complete MVP delivery - All 7 advanced features implemented and tested:
   - Persistent document & conversation storage with JSON files
   - Comprehensive Ollama connection error handling
